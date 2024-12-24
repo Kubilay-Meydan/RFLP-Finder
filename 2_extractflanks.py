@@ -3,6 +3,7 @@ import csv
 import multiprocessing as mp
 from functools import partial
 from tqdm import tqdm
+import argparse
 
 def read_snp_file(snp_file_path):
     snp_data = []
@@ -18,22 +19,19 @@ def read_snp_file(snp_file_path):
     return snp_data
 
 def get_chromosome_from_filename(fasta_file_name):
-    """Extract the chromosome identifier from the FASTA file name."""
     base_name = os.path.basename(fasta_file_name)
-    chromosome = base_name.split('.fa')[0].split('.')[-1]  # Get the part before `.fa` and after the last dot
+    chromosome = base_name.split('.fa')[0].split('.')[-1]
     return chromosome
 
-def extract_sequence_from_chromosome(fasta_folder, snp_info, sequence_size):
+def extract_sequence_from_chromosome(genome_fasta_folder, snp_info, sequence_size):
     chromosome, position1, nucleotide1, nucleotide2 = snp_info
-    
-    # Identify the relevant FASTA file for the chromosome
-    fasta_files = [f for f in os.listdir(fasta_folder) if f.endswith('.fa') and get_chromosome_from_filename(f) == chromosome]
+    fasta_files = [f for f in os.listdir(genome_fasta_folder) if f.endswith('.fa') and get_chromosome_from_filename(f) == chromosome]
     
     if not fasta_files:
         print(f"No FASTA file found for chromosome {chromosome}. Skipping.")
         return None
     
-    fasta_file_path = os.path.join(fasta_folder, fasta_files[0])
+    fasta_file_path = os.path.join(genome_fasta_folder, fasta_files[0])
     
     try:
         with open(fasta_file_path, 'r') as fasta_file:
@@ -42,8 +40,8 @@ def extract_sequence_from_chromosome(fasta_folder, snp_info, sequence_size):
                 if not line.startswith(">"):
                     sequence.append(line.strip())
                     
-            sequence = ''.join(sequence)  # Convert list to a string
-            start = max(0, position1 - sequence_size - 1)  # Adjust for 0-based index
+            sequence = ''.join(sequence)
+            start = max(0, position1 - sequence_size - 1)
             end = position1 + sequence_size
             
             if end > len(sequence):
@@ -52,7 +50,6 @@ def extract_sequence_from_chromosome(fasta_folder, snp_info, sequence_size):
             
             extracted_sequence = sequence[start:end]
             
-            # Create Sequence 2 by replacing Nucleotide 1 with Nucleotide 2 at the SNP position
             sequence2 = list(extracted_sequence)
             if position1 - start - 1 >= 0 and position1 - start - 1 < len(sequence2):
                 sequence2[position1 - start - 1] = nucleotide2
@@ -65,10 +62,9 @@ def extract_sequence_from_chromosome(fasta_folder, snp_info, sequence_size):
         print(f"Error processing chromosome {chromosome} at position {position1}: {e}")
         return None
 
-def process_snp_data(fasta_folder, snp_data, sequence_size):
+def process_snp_data(genome_fasta_folder, snp_data, sequence_size):
     with mp.Pool(mp.cpu_count()) as pool:
-        func = partial(extract_sequence_from_chromosome, fasta_folder, sequence_size=sequence_size)
-        # Use tqdm to show the progress bar
+        func = partial(extract_sequence_from_chromosome, genome_fasta_folder, sequence_size=sequence_size)
         results = list(tqdm(pool.imap(func, snp_data), total=len(snp_data)))
     return [result for result in results if result is not None]
 
@@ -81,21 +77,24 @@ def write_to_csv(output_file_path, extracted_data):
             csvwriter.writerow(data)
     print(f"Data written to {output_file_path}")
 
+def main():
+    parser = argparse.ArgumentParser(description="Extract sequences around SNP positions.")
+    parser.add_argument('-gf', '--genome_fasta_folder', required=True, help="Path to the folder containing the genome FASTA files.")
+    parser.add_argument('-s', '--snp_file', required=True, help="Path to the SNP file.")
+    parser.add_argument('-o', '--output_file', required=True, help="Path to the output CSV file.")
+    parser.add_argument('-z', '--sequence_size', type=int, default=501, help="Number of nucleotides before and after the SNP position (default: 501).")
+    
+    args = parser.parse_args()
+
+    genome_fasta_folder = args.genome_fasta_folder
+    snp_file_path = args.snp_file
+    output_file_path = args.output_file
+    sequence_size = args.sequence_size
+
+    snp_data = read_snp_file(snp_file_path)
+    extracted_data = process_snp_data(genome_fasta_folder, snp_data, sequence_size)
+    write_to_csv(output_file_path, extracted_data)
+    print(f"Extraction complete. Data saved to {output_file_path}.")
 
 if __name__ == "__main__":
-    # User-defined variables
-    fasta_folder = 'bos_taurus_UMD3.1_release-94_dna_rm_filtered'
-    snp_file_path = 'snptest.txt'
-    output_file_path = 'output.csv'
-    sequence_size = 501  # Number of nucleotides before and after the SNP position
-
-    # Read SNP data
-    snp_data = read_snp_file(snp_file_path)
-
-    # Process the SNP data in parallel using multiprocessing
-    extracted_data = process_snp_data(fasta_folder, snp_data, sequence_size)
-
-    # Write the extracted data to CSV
-    write_to_csv(output_file_path, extracted_data)
-
-    print(f"Extraction complete. Data saved to {output_file_path}.")
+    main()

@@ -3,6 +3,7 @@ import ftplib
 import gzip
 import shutil
 from multiprocessing import Pool, cpu_count
+import argparse
 
 def download_file(ftp, output_dir, fasta_file):
     """Download a single file from FTP."""
@@ -24,6 +25,16 @@ def download_genome_files(species, assembly):
     # Format species name to lowercase and underscore format
     species = species.lower().replace(" ", "_")
     species_capitalized = species.capitalize()
+
+    # Directory for storing genomes
+    genomes_dir = "GENOMES"
+    os.makedirs(genomes_dir, exist_ok=True)
+
+    # Check if genome is already downloaded
+    output_dir = os.path.join(genomes_dir, f"{species}_{assembly}_release-112_dna_rm_filtered")
+    if os.path.exists(output_dir):
+        print(f"Genome for {species} assembly {assembly} is already downloaded in {output_dir}.")
+        return output_dir
 
     # Accumulate all available assemblies across releases
     all_assemblies = {}
@@ -78,7 +89,7 @@ def download_genome_files(species, assembly):
                     continue
 
             # Create directory for the species and assembly
-            output_dir = f"{species}_{assembly}_release-{release}_dna_rm_filtered"
+            output_dir = os.path.join(genomes_dir, f"{species}_{assembly}_release-{release}_dna_rm_filtered")
             os.makedirs(output_dir, exist_ok=True)
 
             # Download all files sequentially
@@ -132,14 +143,20 @@ def unzip_file(file_path):
     
     return output_file
 
-# Example usage
-if __name__ == "__main__":
-    species = input("Enter species name (e.g., Homo sapiens): ")
-    assembly = input("Enter assembly name (e.g., ARS-UCD1.3): ")
-    
+def main():
+    parser = argparse.ArgumentParser(description="Download and process genome files from Ensembl FTP server.")
+    parser.add_argument("-s", "--species", type=str, required=True, help="Species name (e.g., 'Homo sapiens').")
+    parser.add_argument("-a", "--assembly", type=str, required=True, help="Assembly name (e.g., 'ARS-UCD1.3').")
+    args = parser.parse_args()
+
     # Step 1: Download the files
-    output_dir = download_genome_files(species, assembly)
+    output_dir = download_genome_files(args.species, args.assembly)
     
     # Step 2: Decompress the files
     if output_dir:
         decompress_genome_files(output_dir)
+        print(f"FASTA folder: {output_dir}")  # Explicitly print for the main script to capture
+
+
+if __name__ == "__main__":
+    main()
