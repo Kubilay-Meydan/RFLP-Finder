@@ -1,6 +1,61 @@
 import os
 import subprocess
 import json
+import shutil
+from datetime import datetime
+
+# ASCII Art Logos
+logo = """
+┳┓┏┓┓ ┏┓  ┏┓┳┳┓┳┓┏┓┳┓
+┣┫┣ ┃ ┃┃  ┣ ┃┃┃┃┃┣ ┣┫
+┛┗┻ ┗┛┣┛  ┻ ┻┛┗┻┛┗┛┛┗
+
+V 0.1.0
+
+2025 - Kubilay MEYDAN - Pre-Release
+
+Thanks for using this software.
+For any inquieries or suggestions,
+Feel free to reach me at:
+kubilay.meydan2002@gmail.com 
+or open an issue on GitHub.
+
+"""
+
+cleanup_tool_logo = """
+ ┓                 ┓
+┏┃┏┓┏┓┏┓┓┏┏┓  ╋┏┓┏┓┃
+┗┗┗ ┗┻┛┗┗┻┣┛  ┗┗┛┗┛┗
+
+Welcome to the cleanup tool.
+This will help you clean up past runs.
+It deletes the work files created for a run.
+You can also tell it to delete the previously downloaded genomes.
+
+"""
+
+autopilot_mode_logo = """
+┏┓     ┏┓•┓   
+┣┫┓┏╋┏┓┃┃┓┃┏┓╋
+┛┗┗┻┗┗┛┣┛┗┗┗┛┗
+
+Autopilot mode is activated.
+This will let you use a set of configurations as
+to complete a run automaticly.
+You need to specify a .json config file.
+An example is present in the 'EXAMPLE' folder of this software.
+
+"""
+
+done_logo = """
+
+┳┓┏┓┳┓┏┓╻
+┃┃┃┃┃┃┣ ┃
+┻┛┗┛┛┗┗┛•
+
+"""
+# Display the logo
+print(logo)
 
 
 def get_input(prompt_text, default_value=None):
@@ -13,9 +68,61 @@ def get_input(prompt_text, default_value=None):
     return user_input if user_input else default_value
 
 
+def cleanup_tool():
+    print("=== Cleanup Tool ===")
+    print(cleanup_tool_logo)
+    cleanup_genomes = (
+        get_input(
+            "Do you want to clean up the downloaded genomes? (yes/no)",
+            "no",
+        )
+        .strip()
+        .lower()
+        == "yes"
+    )
+
+    # Directories to clean
+    folders_to_clean = ["WORK", "LOGS", "RESULTS"]
+    if cleanup_genomes:
+        folders_to_clean.append("GENOMES")
+
+    for folder in folders_to_clean:
+        if os.path.exists(folder):
+            print(f"Cleaning up contents of {folder}...")
+            for file in os.listdir(folder):
+                file_path = os.path.join(folder, file)
+                try:
+                    if os.path.isfile(file_path) or os.path.islink(
+                        file_path
+                    ):
+                        os.unlink(file_path)
+                    elif os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                except Exception as e:
+                    print(
+                        f"Failed to delete {file_path}. Reason: {e}"
+                    )
+            print(f"Contents of {folder} cleaned successfully.")
+        else:
+            print(f"{folder} does not exist or is already cleaned.")
+
+    print("Cleanup completed.")
+
+
 # Ensure RESULTS directory exists
 os.makedirs("RESULTS", exist_ok=True)
 
+# Ask the user for their choice
+print("Choose an action:")
+print("1. Find RFLPs")
+print("2. Use the cleanup tool")
+choice = get_input("Enter your choice (1 or 2)")
+
+if choice == "2":
+    cleanup_tool()
+    exit(0)
+
+# Proceed with RFLP finding
 # Ask if the user wants to use autopilot mode
 autopilot_mode = (
     get_input("Do you want to use autopilot mode? (yes/no)", "no")
@@ -25,6 +132,7 @@ autopilot_mode = (
 )
 
 if autopilot_mode:
+    print(autopilot_mode_logo)
     config_file_path = get_input(
         "Enter the path to the config file", "config.json"
     )
@@ -122,7 +230,7 @@ else:
     else:
         # Collect inputs for genome download
         print("=== Collecting Inputs for Genome Download ===")
-        species = get_input("Enter species name (e.g., Homo sapiens)")
+        species = get_input("Enter species name (e.g., Bos Taurus)")
         assembly = get_input("Enter assembly name (e.g., ARS-UCD1.3)")
 
         print("=== Step 1: Download Genome Files ===")
@@ -225,49 +333,43 @@ subprocess.run(
 )
 
 print("=== Step 4: Perform RFLP Analysis ===")
-subprocess.run(
-    [
-        "python",
-        "SCRIPTS/4_cutter.py",
-        "WORK/FLANKS",
-        "WORK/ENZYME_PATTERNS",
-        "--output",
-        output_file_rflp,
-        "--PRIMER_OPT_SIZE",
-        primer_opt_size,
-        "--PRIMER_MIN_SIZE",
-        primer_min_size,
-        "--PRIMER_MAX_SIZE",
-        primer_max_size,
-        "--PRIMER_OPT_TM",
-        primer_opt_tm,
-        "--PRIMER_MIN_TM",
-        primer_min_tm,
-        "--PRIMER_MAX_TM",
-        primer_max_tm,
-        "--PRIMER_PRODUCT_SIZE_RANGE",
-        primer_product_size_range,
-    ]
+log_filename = os.path.join(
+    "LOGS",
+    f"primer3logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
 )
+os.makedirs("LOGS", exist_ok=True)
+with open(log_filename, "w") as log_file:
+    subprocess.run(
+        [
+            "python",
+            "SCRIPTS/4_cutter.py",
+            "WORK/FLANKS",
+            "WORK/ENZYME_PATTERNS",
+            "--output",
+            output_file_rflp,
+            "--PRIMER_OPT_SIZE",
+            primer_opt_size,
+            "--PRIMER_MIN_SIZE",
+            primer_min_size,
+            "--PRIMER_MAX_SIZE",
+            primer_max_size,
+            "--PRIMER_OPT_TM",
+            primer_opt_tm,
+            "--PRIMER_MIN_TM",
+            primer_min_tm,
+            "--PRIMER_MAX_TM",
+            primer_max_tm,
+            "--PRIMER_PRODUCT_SIZE_RANGE",
+            primer_product_size_range,
+        ],
+        stdout=log_file,  # Log standard output
+        stderr=subprocess.STDOUT,  # Log standard error
+        text=True,
+    )
 
+print(done_logo)
 print(
     "All steps completed! Final analysis file saved in:",
     output_file_rflp,
 )
-
-# Example config file (config.json):
-# {
-#     "use_provided_genome": true,
-#     "fasta_folder": "/path/to/repeatmasked/folder",
-#     "snp_file": "/path/to/snp_file",
-#     "sequence_size": "501",
-#     "input_file_enzyme": "/path/to/enzyme/file",
-#     "output_file_rflp_name": "final_output.csv",
-#     "primer_opt_size": "20",
-#     "primer_min_size": "18",
-#     "primer_max_size": "25",
-#     "primer_opt_tm": "60.0",
-#     "primer_min_tm": "57.0",
-#     "primer_max_tm": "63.0",
-#     "primer_product_size_range": "100-300"
-# }
+print(f"Step 4 logs saved in: {log_filename}")
