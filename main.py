@@ -17,7 +17,7 @@ V 0.1.0
 Thanks for using this software.
 For any inquieries or suggestions,
 Feel free to reach me at:
-kubilay.meydan2002@gmail.com 
+kubilay.meydan2002@gmail.com
 or open an issue on GitHub.
 
 """
