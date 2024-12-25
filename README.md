@@ -45,14 +45,14 @@ The tool enables:
 ### Installation Instructions
 ```bash
 # Clone this repository
-git clone https://github.com/YourUsername/RFLP-Finder.git
+git clone https://github.com/Kubilay-Meydan/RFLP-Finder.git
 cd RFLP-Finder
 
 # Install required Python libraries
 pip install -r requirements.txt
 
 # Launch the pipeline
-python run_all_scripts.py
+python main.py
 ```
 
 ## 👥 Contributors <a name="contributors"></a>
